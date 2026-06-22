@@ -1,15 +1,15 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import type { ToolDef } from '@/tools/registry';
+import { RunsBadge } from './RunsBadge';
 import './ToolShell.css';
 
 interface ToolShellProps {
-  title: string;
-  description: string;
-  icon: string;
+  tool: ToolDef;
   children: ReactNode;
 }
 
-export function ToolShell({ title, description, icon, children }: ToolShellProps) {
+export function ToolShell({ tool, children }: ToolShellProps) {
   return (
     <div className="container tool-shell">
       <Link to="/" className="tool-shell__back">
@@ -23,12 +23,15 @@ export function ToolShell({ title, description, icon, children }: ToolShellProps
       <header className="tool-shell__header">
         <span className="tool-shell__icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-            <path d={icon} />
+            <path d={tool.icon} />
           </svg>
         </span>
         <div>
-          <h1 className="tool-shell__title">{title}</h1>
-          <p className="tool-shell__desc">{description}</p>
+          <div className="tool-shell__title-row">
+            <h1 className="tool-shell__title">{tool.title}</h1>
+            <RunsBadge runtime={tool.runtime} />
+          </div>
+          <p className="tool-shell__desc">{tool.description}</p>
         </div>
       </header>
 

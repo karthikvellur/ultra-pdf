@@ -5,6 +5,7 @@ import {
   CATEGORY_ORDER,
   type ToolDef,
 } from '@/tools/registry';
+import { RunsBadge } from '@/components/RunsBadge';
 import './Home.css';
 
 export function Home() {
@@ -39,8 +40,8 @@ export function Home() {
 }
 
 function ToolCard({ tool }: { tool: ToolDef }) {
-  const inner = (
-    <>
+  return (
+    <Link to={`/tools/${tool.id}`} className="tool-card">
       <span className="tool-card__icon" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
           <path d={tool.icon} />
@@ -49,30 +50,12 @@ function ToolCard({ tool }: { tool: ToolDef }) {
       <div className="tool-card__body">
         <div className="tool-card__title-row">
           <h3 className="tool-card__title">{tool.title}</h3>
-          {tool.status === 'soon' && (
-            <span className="tool-card__badge">Soon</span>
-          )}
         </div>
         <p className="tool-card__desc">{tool.description}</p>
+        <div className="tool-card__footer">
+          <RunsBadge runtime={tool.runtime} short />
+        </div>
       </div>
-    </>
-  );
-
-  if (tool.status === 'soon') {
-    return (
-      <div
-        className="tool-card tool-card--disabled"
-        aria-disabled="true"
-        title="Coming soon"
-      >
-        {inner}
-      </div>
-    );
-  }
-
-  return (
-    <Link to={`/tools/${tool.id}`} className="tool-card">
-      {inner}
     </Link>
   );
 }

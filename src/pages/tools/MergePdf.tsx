@@ -60,7 +60,7 @@ export function MergePdf() {
   }
 
   return (
-    <ToolShell title={TOOL.title} description={TOOL.description} icon={TOOL.icon}>
+    <ToolShell tool={TOOL}>
       <Dropzone
         multiple
         label="Drop PDFs to merge"

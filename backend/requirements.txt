@@ -1,0 +1,11 @@
+# Ultra PDF backend — heavy PDF operations.
+fastapi==0.115.2
+uvicorn[standard]==0.32.0
+python-multipart==0.0.12
+
+# PDF engines
+pikepdf==9.4.0          # qpdf bindings: true decrypt/encrypt, lossless
+pdf2image==1.17.0       # PDF -> PIL images (needs poppler)
+Pillow==11.0.0          # image handling for images->PDF, rasterize
+ocrmypdf==16.5.0        # OCR text layer (needs tesseract + ghostscript)
+pypdf==5.1.0            # lightweight reads/metadata + simple text extraction

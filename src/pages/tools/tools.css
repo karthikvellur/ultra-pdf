@@ -185,6 +185,22 @@
   padding: 1px 7px;
 }
 
+.thumb__badge--muted {
+  left: 6px;
+  right: auto;
+  background: var(--color-text);
+}
+
+.thumb--organize {
+  cursor: default;
+}
+
+.thumb__controls {
+  display: flex;
+  gap: 4px;
+  margin-top: var(--space-1);
+}
+
 /* Editor */
 .editor {
   display: grid;
@@ -241,6 +257,10 @@
   gap: var(--space-2);
 }
 
+.tool-pick--col {
+  flex-direction: column;
+}
+
 .tool-pick button {
   flex: 1;
 }
@@ -255,4 +275,75 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
+}
+
+/* Compression level picker */
+.level-pick {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.level-option {
+  flex: 1;
+  min-width: 140px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  cursor: pointer;
+  text-align: left;
+}
+
+.level-option:hover {
+  background: var(--color-surface-2);
+}
+
+.level-option--active {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.level-option__label {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.level-option__hint {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+/* Extract-text result area */
+.text-output {
+  width: 100%;
+  min-height: 280px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+  resize: vertical;
+  white-space: pre-wrap;
+}
+
+/* Signature pad */
+.sig-pad {
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  touch-action: none;
+  cursor: crosshair;
+  width: 100%;
+}
+
+.sig-tabs {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
 }

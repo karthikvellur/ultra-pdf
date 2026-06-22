@@ -55,6 +55,44 @@ export async function rotatePages(
 }
 
 /**
+ * Rebuild a PDF from an explicit ordering of its existing pages.
+ * `order` is a list of zero-based source indices; repeats duplicate a page,
+ * omissions delete it. This powers the visual "Organize Pages" tool.
+ */
+export async function reorderPages(
+  bytes: Uint8Array,
+  order: number[],
+): Promise<Uint8Array> {
+  const src = await PDFDocument.load(bytes, { ignoreEncryption: true });
+  const out = await PDFDocument.create();
+  const valid = order.filter((i) => i >= 0 && i < src.getPageCount());
+  const pages = await out.copyPages(src, valid);
+  pages.forEach((p) => out.addPage(p));
+  return out.save();
+}
+
+/** Combine images (PNG/JPG bytes) into a single PDF, one image per page. */
+export async function imagesToPdf(
+  images: { bytes: Uint8Array; type: 'png' | 'jpg' }[],
+): Promise<Uint8Array> {
+  const out = await PDFDocument.create();
+  for (const img of images) {
+    const embedded =
+      img.type === 'png'
+        ? await out.embedPng(img.bytes)
+        : await out.embedJpg(img.bytes);
+    const page = out.addPage([embedded.width, embedded.height]);
+    page.drawImage(embedded, {
+      x: 0,
+      y: 0,
+      width: embedded.width,
+      height: embedded.height,
+    });
+  }
+  return out.save();
+}
+
+/**
  * Parse a human range string like "1-3, 5, 8-10" into zero-based indices,
  * clamped to [0, pageCount). Order and duplicates are preserved.
  */

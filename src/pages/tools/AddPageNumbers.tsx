@@ -61,7 +61,7 @@ export function AddPageNumbers() {
     .replace('{total}', String(doc?.numPages ?? 1));
 
   return (
-    <ToolShell title={TOOL.title} description={TOOL.description} icon={TOOL.icon}>
+    <ToolShell tool={TOOL}>
       {!file ? (
         <Dropzone label="Drop a PDF to number" onFiles={handleFiles} />
       ) : (

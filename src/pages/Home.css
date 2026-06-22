@@ -128,3 +128,7 @@
   color: var(--color-text-muted);
   line-height: 1.45;
 }
+
+.tool-card__footer {
+  margin-top: var(--space-3);
+}

@@ -140,6 +140,39 @@ function numberPosition(
   return { x, y };
 }
 
+// ---- Signature placement ----
+
+export interface SignaturePlacement {
+  /** PNG bytes of the signature (transparent background). */
+  pngBytes: Uint8Array;
+  pageIndex: number;
+  /** Normalized 0..1 position (top-left origin) and size, relative to page. */
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** Stamp a signature image onto a page. */
+export async function applySignature(
+  bytes: Uint8Array,
+  placement: SignaturePlacement,
+): Promise<Uint8Array> {
+  const doc = await PDFDocument.load(bytes, { ignoreEncryption: true });
+  const page = doc.getPages()[placement.pageIndex];
+  if (!page) return doc.save();
+
+  const png = await doc.embedPng(placement.pngBytes);
+  const { width: pw, height: ph } = page.getSize();
+  const w = placement.width * pw;
+  const h = placement.height * ph;
+  const x = placement.x * pw;
+  const y = ph - placement.y * ph - h; // top-left → bottom-left origin
+
+  page.drawImage(png, { x, y, width: w, height: h });
+  return doc.save();
+}
+
 // ---- Freeform annotations (text + drawings placed in the editor) ----
 
 export interface TextAnnotation {

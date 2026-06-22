@@ -6,11 +6,23 @@
  * organize.ts, etc.).
  */
 import * as pdfjsLib from 'pdfjs-dist';
+import type {
+  TextItem,
+  TextStyle,
+} from 'pdfjs-dist/types/src/display/api';
+import type { PageViewport } from 'pdfjs-dist';
 // Vite resolves the `?url` import to a served/hashed asset URL (dev & build),
 // which we hand to pdf.js as its worker source. This is more robust than the
 // `?worker` constructor import, which can hang under some dev setups.
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { PdfPasswordError } from './types';
+
+export interface PageTextGeometry {
+  items: TextItem[];
+  styles: Record<string, TextStyle>;
+  /** Viewport at scale 1 — gives stable PDF-space coordinate conversions. */
+  viewport: PageViewport;
+}
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -31,6 +43,11 @@ export interface RenderableDoc {
     pageNumber: number,
     targetWidth: number,
   ) => { promise: Promise<void>; cancel: () => void };
+  /**
+   * Extract a page's text items + styles + a scale-1 viewport, for building
+   * the inline text-edit overlay. Keeps pdf.js encapsulated in this module.
+   */
+  getTextGeometry: (pageNumber: number) => Promise<PageTextGeometry>;
   destroy: () => void;
 }
 
@@ -104,6 +121,17 @@ export async function openForRender(
       return canvas;
     },
     renderPageInto: drawInto,
+    async getTextGeometry(pageNumber) {
+      const page = await doc.getPage(pageNumber);
+      const content = await page.getTextContent();
+      const viewport = page.getViewport({ scale: 1 });
+      // Only TextItem entries carry geometry; TextMarkedContent has none.
+      const items = content.items.filter(
+        (it): it is TextItem => 'transform' in it,
+      );
+      page.cleanup();
+      return { items, styles: content.styles, viewport };
+    },
     destroy() {
       void doc.destroy();
     },

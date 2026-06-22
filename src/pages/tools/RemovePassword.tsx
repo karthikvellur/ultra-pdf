@@ -2,14 +2,18 @@ import { useState } from 'react';
 import { ToolShell } from '@/components/ToolShell';
 import { Dropzone } from '@/components/Dropzone';
 import { getTool } from '@/tools/registry';
+import { useBackend } from '@/hooks/useBackend';
 import { fileToBytes, stripPdfExtension } from '@/lib/pdf/load';
 import { removePassword } from '@/lib/pdf/security';
+import { serverUnlock } from '@/lib/api/operations';
+import { ApiError } from '@/lib/api/client';
 import { downloadBytes, ensurePdfName, formatBytes } from '@/lib/pdf/download';
 import { PdfPasswordError } from '@/lib/pdf/types';
 
 const TOOL = getTool('remove-password')!;
 
 export function RemovePassword() {
+  const { status } = useBackend();
   const [file, setFile] = useState<{ name: string; bytes: Uint8Array } | null>(
     null,
   );
@@ -19,37 +23,45 @@ export function RemovePassword() {
     null,
   );
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
+  const [done, setDone] = useState<string | null>(null);
+
+  const serverUp = status === 'online';
 
   async function handleFiles(files: File[]) {
     const f = files[0];
     setFile({ name: stripPdfExtension(f.name), bytes: await fileToBytes(f) });
     setError(null);
-    setDone(false);
+    setDone(null);
   }
 
   async function handleRemove() {
     if (!file) return;
     setBusy(true);
     setError(null);
-    setDone(false);
-    setProgress({ done: 0, total: 1 });
+    setDone(null);
     try {
-      const result = await removePassword(
-        file.bytes,
-        password,
-        1654,
-        (d, t) => setProgress({ done: d, total: t }),
-      );
-      downloadBytes(result.bytes, ensurePdfName(`${file.name}-unlocked`));
-      setDone(true);
+      if (serverUp) {
+        // Preferred path: true decryption, keeps selectable text.
+        const res = await serverUnlock(file.bytes, `${file.name}.pdf`, password);
+        downloadBytes(res.bytes, ensurePdfName(`${file.name}-unlocked`));
+        setDone('Unlocked with selectable text preserved.');
+      } else {
+        // Fallback: client-side rasterize (text becomes images).
+        setProgress({ done: 0, total: 1 });
+        const res = await removePassword(file.bytes, password, 1654, (d, t) =>
+          setProgress({ done: d, total: t }),
+        );
+        downloadBytes(res.bytes, ensurePdfName(`${file.name}-unlocked`));
+        setDone('Unlocked in your browser (pages rasterized — text not selectable).');
+      }
     } catch (err) {
-      if (err instanceof PdfPasswordError) {
+      if (
+        err instanceof PdfPasswordError ||
+        (err instanceof ApiError && err.code === 'wrong_password')
+      ) {
         setError('Incorrect password. Please check it and try again.');
       } else {
-        setError(
-          err instanceof Error ? err.message : 'Could not unlock this PDF.',
-        );
+        setError(err instanceof Error ? err.message : 'Could not unlock this PDF.');
       }
     } finally {
       setBusy(false);
@@ -58,7 +70,7 @@ export function RemovePassword() {
   }
 
   return (
-    <ToolShell title={TOOL.title} description={TOOL.description} icon={TOOL.icon}>
+    <ToolShell tool={TOOL}>
       {!file ? (
         <Dropzone
           label="Drop a password-protected PDF"
@@ -78,7 +90,7 @@ export function RemovePassword() {
                 setFile(null);
                 setPassword('');
                 setError(null);
-                setDone(false);
+                setDone(null);
               }}
             >
               Change file
@@ -97,19 +109,23 @@ export function RemovePassword() {
             />
           </div>
 
-          <p className="notice notice--info">
-            Decryption happens entirely in your browser. The unlocked pages are
-            re-rendered as images, so text in the result won't be selectable —
-            a high-fidelity, text-preserving path is planned via an optional
-            backend.
+          <p className={`notice ${serverUp ? 'notice--success' : 'notice--warning'}`}>
+            {serverUp ? (
+              <>
+                The server will truly decrypt this PDF, keeping{' '}
+                <strong>selectable text</strong> and structure intact.
+              </>
+            ) : (
+              <>
+                Server offline — unlocking in your browser instead. Pages are
+                re-rendered as images, so text won’t be selectable. Start the
+                backend for a text-preserving unlock.
+              </>
+            )}
           </p>
 
           {error && <p className="notice notice--error">{error}</p>}
-          {done && !error && (
-            <p className="notice notice--success">
-              Done — your unlocked PDF has been downloaded.
-            </p>
-          )}
+          {done && !error && <p className="notice notice--success">{done}</p>}
 
           <div className="toolbar">
             <button

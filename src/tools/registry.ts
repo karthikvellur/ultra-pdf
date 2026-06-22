@@ -14,6 +14,14 @@ export type ToolCategory = 'organize' | 'edit' | 'convert' | 'secure';
 
 export type ToolStatus = 'ready' | 'soon';
 
+/**
+ * Where a tool's work happens:
+ *   - 'client' → 100% in the browser (private, instant, works offline)
+ *   - 'server' → needs the backend (heavy native tooling)
+ *   - 'hybrid' → client by default, backend for the hard cases
+ */
+export type ToolRuntime = 'client' | 'server' | 'hybrid';
+
 export interface ToolDef {
   /** URL slug, e.g. "merge" → /tools/merge */
   id: string;
@@ -21,6 +29,7 @@ export interface ToolDef {
   description: string;
   category: ToolCategory;
   status: ToolStatus;
+  runtime: ToolRuntime;
   /** Inline SVG icon path data (24x24 viewBox, stroke-based). */
   icon: string;
 }
@@ -71,9 +80,10 @@ export const TOOLS: ToolDef[] = [
   {
     id: 'edit',
     title: 'Edit PDF',
-    description: 'Add text, shapes, and freehand drawing on any page.',
+    description: 'Edit existing text inline, or add text, shapes & drawings.',
     category: 'edit',
     status: 'ready',
+    runtime: 'hybrid',
     icon: ICONS.edit,
   },
   {
@@ -82,6 +92,7 @@ export const TOOLS: ToolDef[] = [
     description: 'Stamp text or an image watermark across pages.',
     category: 'edit',
     status: 'ready',
+    runtime: 'client',
     icon: ICONS.text,
   },
   {
@@ -90,14 +101,16 @@ export const TOOLS: ToolDef[] = [
     description: 'Insert customizable page numbers in any corner.',
     category: 'edit',
     status: 'ready',
+    runtime: 'client',
     icon: ICONS.number,
   },
   {
     id: 'remove-watermark',
     title: 'Remove Watermark',
-    description: 'Strip text or stamp watermarks from your document.',
+    description: 'Strip annotation watermarks, or redact burned-in ones.',
     category: 'edit',
     status: 'ready',
+    runtime: 'hybrid',
     icon: ICONS.watermarkOff,
   },
 
@@ -105,17 +118,19 @@ export const TOOLS: ToolDef[] = [
   {
     id: 'remove-password',
     title: 'Remove Password',
-    description: 'Unlock a password-protected PDF you have access to.',
+    description: 'Unlock a PDF — keeps selectable text via the server.',
     category: 'secure',
     status: 'ready',
+    runtime: 'hybrid',
     icon: ICONS.unlock,
   },
   {
     id: 'protect',
     title: 'Protect PDF',
-    description: 'Add a password and encryption to your PDF.',
+    description: 'Add a password and AES-256 encryption to your PDF.',
     category: 'secure',
-    status: 'soon',
+    status: 'ready',
+    runtime: 'server',
     icon: ICONS.lock,
   },
   {
@@ -123,7 +138,8 @@ export const TOOLS: ToolDef[] = [
     title: 'Sign PDF',
     description: 'Draw or type a signature and place it on the page.',
     category: 'secure',
-    status: 'soon',
+    status: 'ready',
+    runtime: 'client',
     icon: ICONS.sign,
   },
 
@@ -134,6 +150,7 @@ export const TOOLS: ToolDef[] = [
     description: 'Combine multiple PDFs into a single document.',
     category: 'organize',
     status: 'ready',
+    runtime: 'client',
     icon: ICONS.merge,
   },
   {
@@ -142,6 +159,7 @@ export const TOOLS: ToolDef[] = [
     description: 'Extract page ranges into separate documents.',
     category: 'organize',
     status: 'ready',
+    runtime: 'client',
     icon: ICONS.split,
   },
   {
@@ -150,6 +168,7 @@ export const TOOLS: ToolDef[] = [
     description: 'Rotate selected or all pages by 90° increments.',
     category: 'organize',
     status: 'ready',
+    runtime: 'client',
     icon: ICONS.rotate,
   },
   {
@@ -157,15 +176,17 @@ export const TOOLS: ToolDef[] = [
     title: 'Organize Pages',
     description: 'Reorder, duplicate, and delete pages visually.',
     category: 'organize',
-    status: 'soon',
+    status: 'ready',
+    runtime: 'client',
     icon: ICONS.reorder,
   },
   {
     id: 'extract-pages',
     title: 'Extract Pages',
-    description: 'Pull selected pages out into a new PDF.',
+    description: 'Pick pages with thumbnails and pull them into a new PDF.',
     category: 'organize',
-    status: 'soon',
+    status: 'ready',
+    runtime: 'client',
     icon: ICONS.extract,
   },
   {
@@ -173,7 +194,8 @@ export const TOOLS: ToolDef[] = [
     title: 'Compress PDF',
     description: 'Reduce file size while keeping quality.',
     category: 'organize',
-    status: 'soon',
+    status: 'ready',
+    runtime: 'server',
     icon: ICONS.compress,
   },
 
@@ -183,7 +205,8 @@ export const TOOLS: ToolDef[] = [
     title: 'PDF to Images',
     description: 'Export each page as a PNG or JPG image.',
     category: 'convert',
-    status: 'soon',
+    status: 'ready',
+    runtime: 'hybrid',
     icon: ICONS.image,
   },
   {
@@ -191,15 +214,17 @@ export const TOOLS: ToolDef[] = [
     title: 'Images to PDF',
     description: 'Combine images into a single PDF document.',
     category: 'convert',
-    status: 'soon',
+    status: 'ready',
+    runtime: 'client',
     icon: ICONS.image,
   },
   {
     id: 'extract-text',
     title: 'Extract Text',
-    description: 'Pull all selectable text out of a PDF.',
+    description: 'Pull selectable text out — OCRs scans via the server.',
     category: 'convert',
-    status: 'soon',
+    status: 'ready',
+    runtime: 'hybrid',
     icon: ICONS.text,
   },
 ];

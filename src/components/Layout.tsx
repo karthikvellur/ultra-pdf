@@ -1,4 +1,5 @@
 import { Link, Outlet } from 'react-router-dom';
+import { BackendStatus } from './BackendStatus';
 import './Layout.css';
 
 export function Layout() {
@@ -19,14 +20,7 @@ export function Layout() {
           </Link>
           <nav className="layout__nav">
             <Link to="/">All Tools</Link>
-            <a
-              href="https://github.com/topics/pdf"
-              target="_blank"
-              rel="noreferrer"
-              className="muted"
-            >
-              About
-            </a>
+            <BackendStatus />
           </nav>
         </div>
       </header>

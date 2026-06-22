@@ -45,7 +45,7 @@ export function SplitPdf() {
   }
 
   return (
-    <ToolShell title={TOOL.title} description={TOOL.description} icon={TOOL.icon}>
+    <ToolShell tool={TOOL}>
       {!file ? (
         <Dropzone label="Drop a PDF to split" onFiles={handleFiles} />
       ) : (

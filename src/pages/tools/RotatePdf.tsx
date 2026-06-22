@@ -76,7 +76,7 @@ export function RotatePdf() {
   const hasRotations = Object.values(rotations).some((t) => t !== 0);
 
   return (
-    <ToolShell title={TOOL.title} description={TOOL.description} icon={TOOL.icon}>
+    <ToolShell tool={TOOL}>
       {!file ? (
         <Dropzone label="Drop a PDF to rotate" onFiles={handleFiles} />
       ) : (
