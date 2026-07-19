@@ -27,22 +27,36 @@ export function BackendProvider({ children }: { children: ReactNode }) {
   const [nonce, setNonce] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
     const controller = new AbortController();
+    // Free-tier backends (e.g. HF Spaces) sleep when idle and take ~30-60s to
+    // wake. Cap the health check so the UI flips to "offline" quickly instead
+    // of hanging on "checking" — the user's actual request wakes the backend,
+    // and the header's retry re-checks once it's up.
+    const timeout = setTimeout(() => controller.abort(), 6000);
     setState((s) => ({ ...s, status: 'checking' }));
     checkHealth(controller.signal)
-      .then((health) =>
+      .then((health) => {
+        if (cancelled) return;
         setState({
           status: 'online',
           tools: health.tools,
           version: health.version,
-        }),
-      )
+        });
+      })
       .catch(() => {
-        if (!controller.signal.aborted) {
+        // Any failure — network error, timeout abort, non-200 — is "offline".
+        // `cancelled` guards only against a component unmount / re-run.
+        if (!cancelled) {
           setState({ status: 'offline', tools: null, version: null });
         }
-      });
-    return () => controller.abort();
+      })
+      .finally(() => clearTimeout(timeout));
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+      controller.abort();
+    };
   }, [nonce]);
 
   return (

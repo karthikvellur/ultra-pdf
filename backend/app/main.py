@@ -26,6 +26,9 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
+    # Matches Cloudflare Pages *.pages.dev (and any custom regex) so the
+    # deployed frontend can call the API without listing every subdomain.
+    allow_origin_regex=settings.cors_origin_regex,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],

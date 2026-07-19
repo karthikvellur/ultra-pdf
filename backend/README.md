@@ -1,4 +1,19 @@
+---
+title: Ultra PDF Backend
+emoji: 📄
+colorFrom: red
+colorTo: gray
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # Ultra PDF — Backend
+
+> The YAML block above configures a **Hugging Face Space** (Docker SDK, port
+> 7860). It's ignored by GitHub and by local runs. To deploy, push this
+> `backend/` folder's contents to an HF Space repo — see the repo's
+> [`DEPLOY.md`](../DEPLOY.md).
 
 FastAPI service for the **heavy** PDF operations that can't be done well in the
 browser. Light operations stay client-side; this server handles:

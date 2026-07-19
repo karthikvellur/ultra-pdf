@@ -1,0 +1,3 @@
+# Cloudflare Pages SPA fallback: serve index.html for any client-side route
+# (e.g. /tools/edit) so a direct visit or hard refresh doesn't 404.
+/*    /index.html   200
