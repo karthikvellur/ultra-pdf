@@ -4,6 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "description": "Ultra PDF — a client-side web app for all your PDF operations",
+  "engines": {
+    "node": ">=20 <21"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
