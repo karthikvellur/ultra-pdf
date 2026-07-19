@@ -1,0 +1,24 @@
+# Render blueprint — free Docker web service for the Ultra PDF backend.
+#
+# Render builds backend/Dockerfile and injects $PORT (the Dockerfile's CMD
+# already binds to it). The free plan sleeps after ~15 min idle (~30-60s cold
+# start) — the frontend degrades gracefully, so the app stays usable.
+#
+# Deploy: push this file, then in the Render dashboard →
+#   New → Blueprint → connect this GitHub repo. Render reads render.yaml.
+services:
+  - type: web
+    name: ultra-pdf-backend
+    runtime: docker
+    plan: free
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    # Render pings this to know the service is live.
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      # Lock CORS to your deployed frontend. Update after the Cloudflare
+      # Pages URL is known (or rely on the *.pages.dev regex default baked
+      # into the backend config). Comma-separated for multiple origins.
+      - key: ULTRA_PDF_CORS_ORIGINS
+        sync: false

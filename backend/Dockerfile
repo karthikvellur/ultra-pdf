@@ -1,8 +1,8 @@
-# Ultra PDF backend — container image for free hosting (Hugging Face Spaces).
+# Ultra PDF backend — container image for cloud hosting (Render, Cloud Run, …).
 #
-# HF Spaces (Docker SDK) runs the container as a non-root user and expects the
-# app to listen on port 7860. This image installs the native tools the heavy
-# PDF operations depend on, then the Python deps, then launches uvicorn.
+# Runs as a non-root user and binds to the platform-injected $PORT. Installs the
+# native tools the heavy PDF operations depend on, then the Python deps, then
+# launches uvicorn.
 FROM python:3.12-slim
 
 # System tools the backend shells out to:
@@ -34,9 +34,10 @@ COPY --chown=appuser:appuser app ./app
 
 USER appuser
 
-# HF Spaces expects 7860; PORT is also honored for other platforms.
-ENV PORT=7860
-EXPOSE 7860
+# The platform injects $PORT at runtime (Render, Cloud Run, etc.). Default to
+# 8000 for local `docker run` without a PORT set.
+ENV PORT=8000
+EXPOSE 8000
 
 # Shell form so ${PORT} expands.
 CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT}
