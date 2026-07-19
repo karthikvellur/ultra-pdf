@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Ultra PDF — a client-side web app for all your PDF operations",
   "engines": {
-    "node": ">=20 <21"
+    "node": ">=20.19 <21"
   },
   "scripts": {
     "dev": "vite",
