@@ -417,3 +417,22 @@
   font-weight: 600;
   white-space: nowrap;
 }
+
+.global-password-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+  padding-bottom: var(--space-3);
+  margin-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.global-password-bar .btn {
+  flex: 0 0 auto;
+}
+
+.unlock-row__hint {
+  margin: 0;
+  font-size: 12px;
+  font-style: italic;
+}

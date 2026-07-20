@@ -7,7 +7,12 @@ import { fileToBytes, stripPdfExtension } from '@/lib/pdf/load';
 import { removePassword } from '@/lib/pdf/security';
 import { serverUnlock } from '@/lib/api/operations';
 import { ApiError } from '@/lib/api/client';
-import { downloadBytes, ensurePdfName, formatBytes } from '@/lib/pdf/download';
+import {
+  downloadAsZip,
+  downloadBytes,
+  ensurePdfName,
+  formatBytes,
+} from '@/lib/pdf/download';
 import { PdfPasswordError } from '@/lib/pdf/types';
 import './tools.css';
 
@@ -21,6 +26,7 @@ interface Entry {
   name: string;
   bytes: Uint8Array;
   size: number;
+  /** This entry's own password, if the user typed one directly into its row. */
   password: string;
   status: EntryStatus;
   /** Progress for the client-side rasterize fallback. */
@@ -32,12 +38,21 @@ interface Entry {
   downloadCount: number;
 }
 
+/** The password actually used for an entry: its own field wins if set,
+ * otherwise it falls back to the shared "same password for all" field. */
+function effectivePassword(entry: Entry, globalPassword: string): string {
+  return entry.password || globalPassword;
+}
+
 export function RemovePassword() {
   const { status } = useBackend();
   const serverUp = status === 'online';
 
   const [entries, setEntries] = useState<Entry[]>([]);
   const [seq, setSeq] = useState(0);
+  const [globalPassword, setGlobalPassword] = useState('');
+  const [batchBusy, setBatchBusy] = useState(false);
+  const [batchDownloading, setBatchDownloading] = useState(false);
 
   const patch = useCallback((id: string, changes: Partial<Entry>) => {
     setEntries((prev) =>
@@ -88,48 +103,36 @@ export function RemovePassword() {
     );
   }
 
-  async function unlock(id: string) {
-    // `entries` is the current render's state; React commits password edits
-    // (onChange) before the next event (Enter/click) fires, so this is fresh.
-    const entry = entries.find((e) => e.id === id);
-    if (!entry || entry.password.length === 0 || entry.status === 'unlocking') {
-      return;
-    }
+  /** Unlock one entry using an explicit password (its own, or the inherited
+   * global one). Returns true on success so batch callers can tally results. */
+  async function unlockWith(id: string, password: string): Promise<boolean> {
+    if (!password) return false;
     patch(id, { status: 'unlocking', message: null, result: null, progress: null });
+
+    const entry = entries.find((e) => e.id === id);
+    if (!entry) return false;
 
     try {
       let unlocked: Uint8Array;
       let message: string;
       if (serverUp) {
         // Preferred path: true decryption, keeps selectable text.
-        const res = await serverUnlock(
-          entry.bytes,
-          `${entry.name}.pdf`,
-          entry.password,
-        );
+        const res = await serverUnlock(entry.bytes, `${entry.name}.pdf`, password);
         unlocked = res.bytes;
         message = 'Unlocked with selectable text preserved — click Download.';
       } else {
         // Fallback: client-side rasterize (text becomes images).
         patch(id, { progress: { done: 0, total: 1 } });
-        const res = await removePassword(
-          entry.bytes,
-          entry.password,
-          1654,
-          (done, total) => patch(id, { progress: { done, total } }),
+        const res = await removePassword(entry.bytes, password, 1654, (done, total) =>
+          patch(id, { progress: { done, total } }),
         );
         unlocked = res.bytes;
         message =
           'Unlocked in your browser (pages rasterized — text not selectable). Click Download.';
       }
 
-      patch(id, {
-        status: 'ready',
-        result: unlocked,
-        message,
-        progress: null,
-      });
-      // No auto-download — the user triggers it via the entry's Download CTA.
+      patch(id, { status: 'ready', result: unlocked, message, progress: null });
+      return true;
     } catch (err) {
       const message =
         err instanceof PdfPasswordError ||
@@ -139,6 +142,34 @@ export function RemovePassword() {
             ? err.message
             : 'Could not unlock this PDF.';
       patch(id, { status: 'error', message, progress: null });
+      return false;
+    }
+  }
+
+  async function unlock(id: string) {
+    // `entries` is the current render's state; React commits password edits
+    // (onChange) before the next event (Enter/click) fires, so this is fresh.
+    const entry = entries.find((e) => e.id === id);
+    if (!entry || entry.status === 'unlocking') return;
+    await unlockWith(id, effectivePassword(entry, globalPassword));
+  }
+
+  /** Unlock every entry that isn't already unlocked, sequentially (kinder to
+   * the backend than firing them all in parallel, and keeps progress legible). */
+  async function unlockAll() {
+    if (batchBusy) return;
+    setBatchBusy(true);
+    try {
+      // Snapshot the ids + passwords up front; `entries` state mutates as we go.
+      const queue = entries
+        .filter((e) => e.status !== 'ready' && e.status !== 'unlocking')
+        .map((e) => ({ id: e.id, password: effectivePassword(e, globalPassword) }))
+        .filter((e) => e.password.length > 0);
+      for (const { id, password } of queue) {
+        await unlockWith(id, password);
+      }
+    } finally {
+      setBatchBusy(false);
     }
   }
 
@@ -148,9 +179,39 @@ export function RemovePassword() {
     patch(entry.id, { downloadCount: entry.downloadCount + 1 });
   }
 
+  /** Zip every unlocked entry's result into a single download. */
+  async function downloadAll() {
+    const ready = entries.filter((e) => e.status === 'ready' && e.result);
+    if (ready.length === 0) return;
+    setBatchDownloading(true);
+    try {
+      await downloadAsZip(
+        ready.map((e) => ({ name: `${e.name}-unlocked`, bytes: e.result! })),
+        'unlocked-pdfs.zip',
+      );
+      setEntries((prev) =>
+        prev.map((e) =>
+          e.status === 'ready' && e.result
+            ? { ...e, downloadCount: e.downloadCount + 1 }
+            : e,
+        ),
+      );
+    } finally {
+      setBatchDownloading(false);
+    }
+  }
+
   function removeEntry(id: string) {
     setEntries((prev) => prev.filter((e) => e.id !== id));
   }
+
+  const readyCount = entries.filter((e) => e.status === 'ready').length;
+  const unlockableCount = entries.filter(
+    (e) =>
+      e.status !== 'ready' &&
+      e.status !== 'unlocking' &&
+      effectivePassword(e, globalPassword).length > 0,
+  ).length;
 
   return (
     <ToolShell tool={TOOL}>
@@ -182,11 +243,45 @@ export function RemovePassword() {
 
       {entries.length > 0 && (
         <div className="card panel" style={{ marginTop: 'var(--space-4)' }}>
+          {entries.length > 1 && (
+            <div className="global-password-bar">
+              <div className="field" style={{ marginBottom: 0, flex: 1 }}>
+                <label htmlFor="global-pwd">
+                  Same password for all files
+                </label>
+                <input
+                  id="global-pwd"
+                  type="password"
+                  placeholder="Applied to any file without its own password"
+                  value={globalPassword}
+                  onChange={(e) => setGlobalPassword(e.target.value)}
+                />
+              </div>
+              <button
+                className="btn btn-primary"
+                onClick={unlockAll}
+                disabled={batchBusy || unlockableCount === 0}
+              >
+                {batchBusy
+                  ? 'Unlocking all…'
+                  : `Unlock all${unlockableCount > 0 ? ` (${unlockableCount})` : ''}`}
+              </button>
+            </div>
+          )}
+          {entries.length > 1 && (
+            <p className="muted" style={{ fontSize: 12, marginTop: 0 }}>
+              A file's own password field (if you've typed one) is used
+              instead of this one. Leave a row blank to use the shared
+              password above.
+            </p>
+          )}
+
           <div className="unlock-list">
             {entries.map((entry) => (
               <UnlockRow
                 key={entry.id}
                 entry={entry}
+                usingGlobal={!entry.password && globalPassword.length > 0}
                 onPassword={(v) => setPassword(entry.id, v)}
                 onUnlock={() => unlock(entry.id)}
                 onDownload={() => download(entry)}
@@ -195,16 +290,30 @@ export function RemovePassword() {
             ))}
           </div>
 
-          {entries.length > 1 && (
-            <div className="toolbar">
+          <div className="toolbar">
+            {readyCount > 1 && (
+              <button
+                className="btn btn-secondary"
+                onClick={downloadAll}
+                disabled={batchDownloading}
+              >
+                {batchDownloading
+                  ? 'Zipping…'
+                  : `Download all ${readyCount} as .zip`}
+              </button>
+            )}
+            {entries.length > 1 && (
               <button
                 className="btn btn-ghost btn-sm"
-                onClick={() => setEntries([])}
+                onClick={() => {
+                  setEntries([]);
+                  setGlobalPassword('');
+                }}
               >
                 Clear all
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
     </ToolShell>
@@ -213,12 +322,15 @@ export function RemovePassword() {
 
 function UnlockRow({
   entry,
+  usingGlobal,
   onPassword,
   onUnlock,
   onDownload,
   onRemove,
 }: {
   entry: Entry;
+  /** True when this row has no password of its own and will use the shared one. */
+  usingGlobal: boolean;
   onPassword: (value: string) => void;
   onUnlock: () => void;
   onDownload: () => void;
@@ -258,7 +370,7 @@ function UnlockRow({
         <input
           type="password"
           className="unlock-row__pwd"
-          placeholder="Password"
+          placeholder={usingGlobal ? 'Using shared password above' : 'Password'}
           value={entry.password}
           disabled={busy}
           onChange={(e) => onPassword(e.target.value)}
@@ -294,7 +406,7 @@ function UnlockRow({
           <button
             className="btn btn-primary btn-sm"
             onClick={onUnlock}
-            disabled={busy || entry.password.length === 0}
+            disabled={busy || (!entry.password && !usingGlobal)}
           >
             {busy
               ? entry.progress
@@ -304,6 +416,10 @@ function UnlockRow({
           </button>
         )}
       </div>
+
+      {usingGlobal && !entry.password && entry.status === 'idle' && (
+        <p className="muted unlock-row__hint">Will use the shared password</p>
+      )}
 
       {entry.message && (
         <p
