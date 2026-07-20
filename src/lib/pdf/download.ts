@@ -1,6 +1,25 @@
 /** Helpers for delivering generated PDFs (and other blobs) to the user. */
 import JSZip from 'jszip';
 
+// Minimal ambient typing for the File System Access API — not yet in
+// TypeScript's built-in DOM lib.
+interface SaveFilePickerOptions {
+  suggestedName?: string;
+}
+type ShowSaveFilePicker = (
+  options?: SaveFilePickerOptions,
+) => Promise<{
+  createWritable(): Promise<{
+    write(data: Blob): Promise<void>;
+    close(): Promise<void>;
+  }>;
+}>;
+
+function getShowSaveFilePicker(): ShowSaveFilePicker | undefined {
+  return (window as unknown as { showSaveFilePicker?: ShowSaveFilePicker })
+    .showSaveFilePicker;
+}
+
 export function downloadBytes(
   bytes: Uint8Array,
   fileName: string,
@@ -14,7 +33,35 @@ export function downloadBytes(
   downloadBlob(blob, fileName);
 }
 
+/**
+ * Save a blob under the exact name the caller asked for. On Chromium
+ * browsers this uses the File System Access API's native "Save As" dialog,
+ * which writes the file under our filename with no silent OS/browser
+ * renaming on collision. Everywhere else (Firefox, Safari, mobile — or if
+ * the user cancels the picker) it falls back to the classic `<a download>`
+ * approach, where the browser may still append "(1)" etc. on its own.
+ */
 export function downloadBlob(blob: Blob, fileName: string): void {
+  const showSaveFilePicker = getShowSaveFilePicker();
+  if (showSaveFilePicker) {
+    showSaveFilePicker({ suggestedName: fileName })
+      .then(async (handle) => {
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+      })
+      .catch((err) => {
+        // AbortError means the user cancelled the picker — respect that
+        // instead of falling back to a surprise second download.
+        if (err instanceof Error && err.name === 'AbortError') return;
+        downloadViaAnchor(blob, fileName);
+      });
+    return;
+  }
+  downloadViaAnchor(blob, fileName);
+}
+
+function downloadViaAnchor(blob: Blob, fileName: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
