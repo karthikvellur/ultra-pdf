@@ -176,7 +176,11 @@ export function RemovePassword() {
   function download(entry: Entry) {
     if (!entry.result) return;
     downloadBytes(entry.result, ensurePdfName(`${entry.name}-unlocked`));
-    patch(entry.id, { downloadCount: entry.downloadCount + 1 });
+    setEntries((prev) =>
+      prev.map((e) =>
+        e.id === entry.id ? { ...e, downloadCount: e.downloadCount + 1 } : e,
+      ),
+    );
   }
 
   /** Zip every unlocked entry's result into a single download. */
@@ -345,16 +349,6 @@ function UnlockRow({
         <div className="file-chip__meta">
           <span className="file-chip__name">{entry.name}.pdf</span>
           <span className="muted">{formatBytes(entry.size)}</span>
-          {entry.downloadCount > 0 && (
-            <span className="download-count" title="Downloads this session">
-              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <path d="M7 10l5 5 5-5" />
-                <path d="M12 15V3" />
-              </svg>
-              Downloaded {entry.downloadCount}×
-            </span>
-          )}
         </div>
         <button
           className="icon-btn"
@@ -416,6 +410,17 @@ function UnlockRow({
           </button>
         )}
       </div>
+
+      {entry.downloadCount > 0 && (
+        <span className="download-count" title="Downloads this session">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <path d="M7 10l5 5 5-5" />
+            <path d="M12 15V3" />
+          </svg>
+          Downloaded {entry.downloadCount}×
+        </span>
+      )}
 
       {usingGlobal && !entry.password && entry.status === 'idle' && (
         <p className="muted unlock-row__hint">Will use the shared password</p>
