@@ -53,6 +53,7 @@ export function RemovePassword() {
   const [globalPassword, setGlobalPassword] = useState('');
   const [batchBusy, setBatchBusy] = useState(false);
   const [batchDownloading, setBatchDownloading] = useState(false);
+  const [appendSuffix, setAppendSuffix] = useState(false);
 
   const patch = useCallback((id: string, changes: Partial<Entry>) => {
     setEntries((prev) =>
@@ -175,7 +176,8 @@ export function RemovePassword() {
 
   function download(entry: Entry) {
     if (!entry.result) return;
-    downloadBytes(entry.result, ensurePdfName(`${entry.name}-unlocked`));
+    const name = appendSuffix ? `${entry.name}-unlocked` : entry.name;
+    downloadBytes(entry.result, ensurePdfName(name));
     setEntries((prev) =>
       prev.map((e) =>
         e.id === entry.id ? { ...e, downloadCount: e.downloadCount + 1 } : e,
@@ -190,7 +192,10 @@ export function RemovePassword() {
     setBatchDownloading(true);
     try {
       await downloadAsZip(
-        ready.map((e) => ({ name: `${e.name}-unlocked`, bytes: e.result! })),
+        ready.map((e) => ({
+          name: appendSuffix ? `${e.name}-unlocked` : e.name,
+          bytes: e.result!,
+        })),
         'unlocked-pdfs.zip',
       );
       setEntries((prev) =>
@@ -279,6 +284,15 @@ export function RemovePassword() {
               password above.
             </p>
           )}
+
+          <label className="suffix-toggle">
+            <input
+              type="checkbox"
+              checked={appendSuffix}
+              onChange={(e) => setAppendSuffix(e.target.checked)}
+            />
+            Append "-unlocked" to downloaded file names
+          </label>
 
           <div className="unlock-list">
             {entries.map((entry) => (
