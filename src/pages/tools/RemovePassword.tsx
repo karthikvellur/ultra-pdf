@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { ToolShell } from '@/components/ToolShell';
 import { Dropzone } from '@/components/Dropzone';
 import { getTool } from '@/tools/registry';
@@ -54,19 +54,6 @@ export function RemovePassword() {
   const [batchBusy, setBatchBusy] = useState(false);
   const [batchDownloading, setBatchDownloading] = useState(false);
   const [appendSuffix, setAppendSuffix] = useState(false);
-
-  // Tracks how many times each final (post-suffix) filename has been handed
-  // to the browser this session. The first use of a name is left untouched;
-  // repeats get a deliberate "-2", "-3"... suffix so the browser never has
-  // to silently rename the file to avoid clobbering the previous download.
-  const downloadNameCounts = useRef(new Map<string, number>());
-
-  function nextDownloadName(baseName: string): string {
-    const counts = downloadNameCounts.current;
-    const uses = (counts.get(baseName) ?? 0) + 1;
-    counts.set(baseName, uses);
-    return uses === 1 ? baseName : `${baseName}-${uses}`;
-  }
 
   const patch = useCallback((id: string, changes: Partial<Entry>) => {
     setEntries((prev) =>
@@ -189,8 +176,7 @@ export function RemovePassword() {
 
   function download(entry: Entry) {
     if (!entry.result) return;
-    const baseName = appendSuffix ? `${entry.name}-unlocked` : entry.name;
-    const name = nextDownloadName(baseName);
+    const name = appendSuffix ? `${entry.name}-unlocked` : entry.name;
     downloadBytes(entry.result, ensurePdfName(name));
     setEntries((prev) =>
       prev.map((e) =>
@@ -206,10 +192,10 @@ export function RemovePassword() {
     setBatchDownloading(true);
     try {
       await downloadAsZip(
-        ready.map((e) => {
-          const baseName = appendSuffix ? `${e.name}-unlocked` : e.name;
-          return { name: nextDownloadName(baseName), bytes: e.result! };
-        }),
+        ready.map((e) => ({
+          name: appendSuffix ? `${e.name}-unlocked` : e.name,
+          bytes: e.result!,
+        })),
         'unlocked-pdfs.zip',
       );
       setEntries((prev) =>
