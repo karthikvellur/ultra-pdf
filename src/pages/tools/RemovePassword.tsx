@@ -368,7 +368,9 @@ function UnlockRow({
     <div className="unlock-row">
       <div className="unlock-row__main">
         <div className="file-chip__meta unlock-row__name">
-          <span className="file-chip__name">{entry.name}.pdf</span>
+          <span className="file-chip__name" title={`${entry.name}.pdf`}>
+            {entry.name}.pdf
+          </span>
           <span className="muted">{formatBytes(entry.size)}</span>
         </div>
 
