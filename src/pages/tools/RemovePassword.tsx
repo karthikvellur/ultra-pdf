@@ -28,6 +28,8 @@ interface Entry {
   /** Unlocked bytes, available once status === 'ready'. */
   result: Uint8Array | null;
   message: string | null;
+  /** How many times this entry's unlocked file has been downloaded this session. */
+  downloadCount: number;
 }
 
 export function RemovePassword() {
@@ -59,6 +61,7 @@ export function RemovePassword() {
           progress: null,
           result: null,
           message: null,
+          downloadCount: 0,
         });
       }
       setSeq(n);
@@ -140,9 +143,9 @@ export function RemovePassword() {
   }
 
   function download(entry: Entry) {
-    if (entry.result) {
-      downloadBytes(entry.result, ensurePdfName(`${entry.name}-unlocked`));
-    }
+    if (!entry.result) return;
+    downloadBytes(entry.result, ensurePdfName(`${entry.name}-unlocked`));
+    patch(entry.id, { downloadCount: entry.downloadCount + 1 });
   }
 
   function removeEntry(id: string) {
@@ -230,6 +233,16 @@ function UnlockRow({
         <div className="file-chip__meta">
           <span className="file-chip__name">{entry.name}.pdf</span>
           <span className="muted">{formatBytes(entry.size)}</span>
+          {entry.downloadCount > 0 && (
+            <span className="download-count" title="Downloads this session">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <path d="M7 10l5 5 5-5" />
+                <path d="M12 15V3" />
+              </svg>
+              Downloaded {entry.downloadCount}×
+            </span>
+          )}
         </div>
         <button
           className="icon-btn"
