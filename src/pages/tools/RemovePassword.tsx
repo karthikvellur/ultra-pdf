@@ -224,40 +224,38 @@ export function RemovePassword() {
 
   return (
     <ToolShell tool={TOOL}>
-      <Dropzone
-        multiple
-        label={
-          entries.length === 0
-            ? 'Drop password-protected PDFs'
-            : 'Drop more PDFs to add'
-        }
-        hint="you can add several at once — each unlocks on its own"
-        onFiles={addFiles}
-      />
+      <div className="unlock-layout">
+        <div className="unlock-layout__rail">
+          <Dropzone
+            multiple
+            label={
+              entries.length === 0
+                ? 'Drop password-protected PDFs'
+                : 'Drop more PDFs to add'
+            }
+            hint="you can add several at once — each unlocks on its own"
+            onFiles={addFiles}
+          />
 
-      <p className={`notice ${serverUp ? 'notice--success' : 'notice--warning'}`}>
-        {serverUp ? (
-          <>
-            The server truly decrypts each PDF, keeping{' '}
-            <strong>selectable text</strong> and structure intact.
-          </>
-        ) : (
-          <>
-            Server offline — unlocking in your browser instead. Pages are
-            re-rendered as images, so text won’t be selectable. Start the
-            backend for a text-preserving unlock.
-          </>
-        )}
-      </p>
+          <p className={`notice ${serverUp ? 'notice--success' : 'notice--warning'}`}>
+            {serverUp ? (
+              <>
+                The server truly decrypts each PDF, keeping{' '}
+                <strong>selectable text</strong> and structure intact.
+              </>
+            ) : (
+              <>
+                Server offline — unlocking in your browser instead. Pages are
+                re-rendered as images, so text won’t be selectable. Start the
+                backend for a text-preserving unlock.
+              </>
+            )}
+          </p>
 
-      {entries.length > 0 && (
-        <div className="card panel" style={{ marginTop: 'var(--space-4)' }}>
           {entries.length > 1 && (
-            <div className="global-password-bar">
-              <div className="field" style={{ marginBottom: 0, flex: 1 }}>
-                <label htmlFor="global-pwd">
-                  Same password for all files
-                </label>
+            <div className="card panel unlock-layout__batch">
+              <div className="field" style={{ marginBottom: 'var(--space-3)' }}>
+                <label htmlFor="global-pwd">Same password for all files</label>
                 <input
                   id="global-pwd"
                   type="password"
@@ -268,6 +266,7 @@ export function RemovePassword() {
               </div>
               <button
                 className="btn btn-primary"
+                style={{ width: '100%' }}
                 onClick={unlockAll}
                 disabled={batchBusy || unlockableCount === 0}
               >
@@ -275,65 +274,71 @@ export function RemovePassword() {
                   ? 'Unlocking all…'
                   : `Unlock all${unlockableCount > 0 ? ` (${unlockableCount})` : ''}`}
               </button>
+              <p className="muted" style={{ fontSize: 12, marginBottom: 0 }}>
+                A file's own password field (if you've typed one) is used
+                instead of this one. Leave a row blank to use the shared
+                password above.
+              </p>
             </div>
           )}
-          {entries.length > 1 && (
-            <p className="muted" style={{ fontSize: 12, marginTop: 0 }}>
-              A file's own password field (if you've typed one) is used
-              instead of this one. Leave a row blank to use the shared
-              password above.
-            </p>
+
+          {entries.length > 0 && (
+            <label className="suffix-toggle">
+              <input
+                type="checkbox"
+                checked={appendSuffix}
+                onChange={(e) => setAppendSuffix(e.target.checked)}
+              />
+              Append "-unlocked" to downloaded file names
+            </label>
           )}
 
-          <label className="suffix-toggle">
-            <input
-              type="checkbox"
-              checked={appendSuffix}
-              onChange={(e) => setAppendSuffix(e.target.checked)}
-            />
-            Append "-unlocked" to downloaded file names
-          </label>
-
-          <div className="unlock-list">
-            {entries.map((entry) => (
-              <UnlockRow
-                key={entry.id}
-                entry={entry}
-                usingGlobal={!entry.password && globalPassword.length > 0}
-                onPassword={(v) => setPassword(entry.id, v)}
-                onUnlock={() => unlock(entry.id)}
-                onDownload={() => download(entry)}
-                onRemove={() => removeEntry(entry.id)}
-              />
-            ))}
-          </div>
-
-          <div className="toolbar">
-            {readyCount > 1 && (
-              <button
-                className="btn btn-secondary"
-                onClick={downloadAll}
-                disabled={batchDownloading}
-              >
-                {batchDownloading
-                  ? 'Zipping…'
-                  : `Download all ${readyCount} as .zip`}
-              </button>
-            )}
-            {entries.length > 1 && (
-              <button
-                className="btn btn-ghost btn-sm"
-                onClick={() => {
-                  setEntries([]);
-                  setGlobalPassword('');
-                }}
-              >
-                Clear all
-              </button>
-            )}
-          </div>
+          {entries.length > 0 && (readyCount > 1 || entries.length > 1) && (
+            <div className="toolbar unlock-layout__actions">
+              {readyCount > 1 && (
+                <button
+                  className="btn btn-secondary"
+                  onClick={downloadAll}
+                  disabled={batchDownloading}
+                >
+                  {batchDownloading
+                    ? 'Zipping…'
+                    : `Download all ${readyCount} as .zip`}
+                </button>
+              )}
+              {entries.length > 1 && (
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => {
+                    setEntries([]);
+                    setGlobalPassword('');
+                  }}
+                >
+                  Clear all
+                </button>
+              )}
+            </div>
+          )}
         </div>
-      )}
+
+        {entries.length > 0 && (
+          <div className="unlock-layout__list">
+            <div className="unlock-list">
+              {entries.map((entry) => (
+                <UnlockRow
+                  key={entry.id}
+                  entry={entry}
+                  usingGlobal={!entry.password && globalPassword.length > 0}
+                  onPassword={(v) => setPassword(entry.id, v)}
+                  onUnlock={() => unlock(entry.id)}
+                  onDownload={() => download(entry)}
+                  onRemove={() => removeEntry(entry.id)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </ToolShell>
   );
 }
@@ -357,28 +362,20 @@ function UnlockRow({
   const busy = entry.status === 'unlocking';
   const ready = entry.status === 'ready';
 
+  const showHint = usingGlobal && !entry.password && entry.status === 'idle';
+
   return (
     <div className="unlock-row">
       <div className="unlock-row__main">
-        <div className="file-chip__meta">
+        <div className="file-chip__meta unlock-row__name">
           <span className="file-chip__name">{entry.name}.pdf</span>
           <span className="muted">{formatBytes(entry.size)}</span>
         </div>
-        <button
-          className="icon-btn"
-          onClick={onRemove}
-          aria-label="Remove file"
-          title="Remove"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
-        </button>
-      </div>
 
-      <div className="unlock-row__controls">
         <input
           type="password"
           className="unlock-row__pwd"
-          placeholder={usingGlobal ? 'Using shared password above' : 'Password'}
+          placeholder={usingGlobal ? 'Using shared password' : 'Password'}
           value={entry.password}
           disabled={busy}
           onChange={(e) => onPassword(e.target.value)}
@@ -423,28 +420,37 @@ function UnlockRow({
               : 'Unlock'}
           </button>
         )}
+
+        {entry.downloadCount > 0 && (
+          <span className="download-count" title="Downloads this session">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <path d="M7 10l5 5 5-5" />
+              <path d="M12 15V3" />
+            </svg>
+            {entry.downloadCount}×
+          </span>
+        )}
+
+        <button
+          className="icon-btn"
+          onClick={onRemove}
+          aria-label="Remove file"
+          title="Remove"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
+        </button>
       </div>
 
-      {entry.downloadCount > 0 && (
-        <span className="download-count" title="Downloads this session">
-          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <path d="M7 10l5 5 5-5" />
-            <path d="M12 15V3" />
-          </svg>
-          Downloaded {entry.downloadCount}×
-        </span>
-      )}
-
-      {usingGlobal && !entry.password && entry.status === 'idle' && (
-        <p className="muted unlock-row__hint">Will use the shared password</p>
-      )}
-
-      {entry.message && (
+      {(showHint || entry.message) && (
         <p
-          className={`notice notice--${entry.status === 'error' ? 'error' : 'success'} unlock-row__msg`}
+          className={
+            entry.message
+              ? `notice notice--${entry.status === 'error' ? 'error' : 'success'} unlock-row__msg`
+              : 'muted unlock-row__hint'
+          }
         >
-          {entry.message}
+          {entry.message ?? 'Will use the shared password'}
         </p>
       )}
     </div>
