@@ -10,7 +10,7 @@
  * "all PDF operations" without touching the home page or navigation.
  */
 
-export type ToolCategory = 'organize' | 'edit' | 'convert' | 'secure';
+export type ToolCategory = 'organize' | 'edit' | 'convert' | 'secure' | 'image';
 
 export type ToolStatus = 'ready' | 'soon';
 
@@ -39,11 +39,13 @@ export const CATEGORY_LABELS: Record<ToolCategory, string> = {
   edit: 'Edit & Annotate',
   convert: 'Convert',
   secure: 'Secure & Sign',
+  image: 'Images',
 };
 
 export const CATEGORY_ORDER: ToolCategory[] = [
   'edit',
   'secure',
+  'image',
   'organize',
   'convert',
 ];
@@ -73,6 +75,8 @@ const ICONS = {
   text: 'M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2 M9 20h6 M12 4v16',
   sign: 'M3 17c3-1 4-6 6-6s2 4 4 4 3-7 5-7 M3 21h18',
   lock: 'M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z M7 11V7a5 5 0 0 1 10 0v4',
+  resize:
+    'M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M15 3v18 M3 9h6',
 };
 
 export const TOOLS: ToolDef[] = [
@@ -141,6 +145,17 @@ export const TOOLS: ToolDef[] = [
     status: 'ready',
     runtime: 'client',
     icon: ICONS.sign,
+  },
+
+  // ---- Images ----
+  {
+    id: 'resize-image',
+    title: 'Resize Image',
+    description: 'Check a JPG/PNG\'s current pixel size, then resize it.',
+    category: 'image',
+    status: 'ready',
+    runtime: 'client',
+    icon: ICONS.resize,
   },
 
   // ---- Organize ----

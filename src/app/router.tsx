@@ -18,6 +18,7 @@ import { CompressPdf } from '@/pages/tools/CompressPdf';
 import { PdfToImages } from '@/pages/tools/PdfToImages';
 import { ImagesToPdf } from '@/pages/tools/ImagesToPdf';
 import { ExtractText } from '@/pages/tools/ExtractText';
+import { ResizeImage } from '@/pages/tools/ResizeImage';
 
 export const router = createBrowserRouter(
   [
@@ -42,6 +43,7 @@ export const router = createBrowserRouter(
         { path: 'tools/pdf-to-image', element: <PdfToImages /> },
         { path: 'tools/image-to-pdf', element: <ImagesToPdf /> },
         { path: 'tools/extract-text', element: <ExtractText /> },
+        { path: 'tools/resize-image', element: <ResizeImage /> },
         { path: '*', element: <NotFound /> },
       ],
     },
