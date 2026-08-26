@@ -6,6 +6,9 @@ interface PageCanvasProps {
   pageNumber: number;
   /** Target CSS width in px. */
   width: number;
+  /** Called with the actual rendered CSS size once a render completes —
+   * pages aren't always the portrait-ish aspect ratio callers might assume. */
+  onRendered?: (size: { width: number; height: number }) => void;
 }
 
 /**
@@ -17,7 +20,7 @@ interface PageCanvasProps {
  * avoids the trap of imperatively inserting a canvas into a ref captured during
  * a prior, now-detached mount.
  */
-export function PageCanvas({ doc, pageNumber, width }: PageCanvasProps) {
+export function PageCanvas({ doc, pageNumber, width, onRendered }: PageCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [rendering, setRendering] = useState(true);
   const [failed, setFailed] = useState(false);
@@ -30,7 +33,17 @@ export function PageCanvas({ doc, pageNumber, width }: PageCanvasProps) {
     const task = doc.renderPageInto(canvasRef.current!, pageNumber, width);
     task.promise
       .then(() => {
-        if (!cancelled) setRendering(false);
+        if (cancelled) return;
+        setRendering(false);
+        const canvas = canvasRef.current;
+        if (canvas && onRendered) {
+          // Actual on-screen size pdf.js just set — pages aren't all the
+          // same aspect ratio, so this can differ a lot from width * 1.3.
+          onRendered({
+            width: parseFloat(canvas.style.width) || width,
+            height: parseFloat(canvas.style.height) || width * 1.3,
+          });
+        }
       })
       .catch((err: unknown) => {
         // A cancelled render (StrictMode remount / fast navigation) is expected.
@@ -43,7 +56,7 @@ export function PageCanvas({ doc, pageNumber, width }: PageCanvasProps) {
       cancelled = true;
       task.cancel();
     };
-  }, [doc, pageNumber, width]);
+  }, [doc, pageNumber, width, onRendered]);
 
   return (
     <div

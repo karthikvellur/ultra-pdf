@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ToolShell } from '@/components/ToolShell';
 import { Dropzone } from '@/components/Dropzone';
 import { PageCanvas } from '@/components/PageCanvas';
@@ -47,12 +47,26 @@ export function EditPdf() {
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [loadingRuns, setLoadingRuns] = useState(false);
 
+  // Actual on-screen page size, reported by PageCanvas once it renders — the
+  // overlay must match this exactly, since pages aren't all the same aspect
+  // ratio as a guessed portrait default.
+  const [pageSize, setPageSize] = useState({ width: PAGE_WIDTH, height: PAGE_WIDTH * 1.3 });
+  const handleRendered = useCallback((size: { width: number; height: number }) => {
+    setPageSize(size);
+  }, []);
+
   // In-progress freehand stroke (normalized points).
   const drawing = useRef<{ x: number; y: number }[] | null>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const [, force] = useState(0);
 
   const { doc, loading } = usePdfRenderer(file?.bytes ?? null);
+
+  // Each page can have a different aspect ratio — don't let a stale size
+  // from the previous page apply while the new one is still rendering.
+  useEffect(() => {
+    setPageSize({ width: PAGE_WIDTH, height: PAGE_WIDTH * 1.3 });
+  }, [doc, pageIndex]);
 
   // Extract editable text runs for the current page when in inline mode.
   useEffect(() => {
@@ -384,19 +398,23 @@ export function EditPdf() {
             {loading && <span className="muted">Loading…</span>}
 
             {doc && (
-              <div className="editor__page" style={{ width: PAGE_WIDTH }}>
+              <div
+                className="editor__page"
+                style={{ width: pageSize.width, height: pageSize.height }}
+              >
                 <PageCanvas
                   key={pageIndex}
                   doc={doc}
                   pageNumber={pageIndex + 1}
                   width={PAGE_WIDTH}
+                  onRendered={handleRendered}
                 />
 
                 {mode === 'inline' ? (
                   <TextLayerOverlay
                     runs={currentRuns}
-                    width={PAGE_WIDTH}
-                    height={PAGE_WIDTH * 1.3}
+                    width={pageSize.width}
+                    height={pageSize.height}
                     activeRunId={activeRunId}
                     onActivate={setActiveRunId}
                     onEdit={editRun}

@@ -26,7 +26,13 @@ import pikepdf
 from fastapi import APIRouter, Form, HTTPException, UploadFile
 
 from ..deps import pdf_response, read_upload
-from ..pdf_util import norm_rect_to_points, paint_white_box, stem as _stem
+from ..pdf_util import (
+    base_ctm_inverse,
+    cm_str,
+    norm_rect_to_points,
+    paint_white_box,
+    stem as _stem,
+)
 
 router = APIRouter(prefix="/api/edit", tags=["edit"])
 
@@ -131,9 +137,14 @@ def _apply_text_edit(pdf: pikepdf.Pdf, page, spec: dict) -> bool:
     baseline_y = py_bottom + size * 0.18
 
     # 4. Append the text-drawing stream so it lands on top of the whiteout.
+    #    Undo any leaked base CTM first — see base_ctm_inverse's docstring —
+    #    so our "absolute" position and font size aren't silently
+    #    rescaled/shifted by whatever transform the original content left
+    #    active outside a balanced q/Q pair.
+    inv = cm_str(base_ctm_inverse(page))
     esc = _pdf_escape(new_text)
     overlay = (
-        f"q BT /{res_name} {size:.2f} Tf 0 0 0 rg "
+        f"q {inv} cm BT /{res_name} {size:.2f} Tf 0 0 0 rg "
         f"1 0 0 1 {px:.2f} {baseline_y:.2f} Tm {esc} Tj ET Q\n"
     ).encode("latin-1")
     page.contents_add(pikepdf.Stream(pdf, overlay), prepend=False)

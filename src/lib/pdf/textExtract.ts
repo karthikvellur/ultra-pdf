@@ -48,12 +48,35 @@ export function buildRuns(
   for (const item of items) {
     if (!item.str || item.str.trim() === '') continue; // skip spacers
     const [a, b, c, d, e, f] = item.transform;
+    // pdf.js's TextItem.width/height are already in device (PDF-point) space
+    // — the advance along the transform's rotation direction, not a
+    // text-space unit that still needs scaling by a/c. Multiplying them
+    // through the matrix again (as if they were unscaled) double-applies
+    // the font size and blows up the box (e.g. a 30-char line at 13.5pt
+    // ending up ~2500pt wide instead of ~190pt).
     const width = item.width;
     const height = item.height || Math.hypot(c, d);
 
-    // Four transformed corners → PDF-space bbox (handles rotation/shear).
-    const xs = [e, e + a * width, e + c * height, e + a * width + c * height];
-    const ys = [f, f + b * width, f + d * height, f + b * width + d * height];
+    // Unit vectors for the "advance" (rotation) and "up" (glyph height)
+    // directions, derived from the transform but not re-scaled by width/height.
+    const rotLen = Math.hypot(a, b) || 1;
+    const ux = a / rotLen;
+    const uy = b / rotLen;
+    const upLen = Math.hypot(c, d) || 1;
+    const vx = c / upLen;
+    const vy = d / upLen;
+
+    // Four corners of the glyph box in PDF space: origin at the transform's
+    // translation (e, f), extended by `width` along the advance direction
+    // and `height` along the up direction.
+    const corners = [
+      [e, f],
+      [e + ux * width, f + uy * width],
+      [e + vx * height, f + vy * height],
+      [e + ux * width + vx * height, f + uy * width + vy * height],
+    ];
+    const xs = corners.map((p) => p[0]);
+    const ys = corners.map((p) => p[1]);
 
     geoms.push({
       item,
