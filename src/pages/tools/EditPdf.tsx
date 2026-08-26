@@ -19,9 +19,17 @@ import { usePdfRenderer } from '@/hooks/usePdfRenderer';
 import './tools.css';
 
 const TOOL = getTool('edit')!;
-const PAGE_WIDTH = 560;
+// Fallback/initial guess before the stage has been measured; the actual
+// render width is computed from available space (see `stageWidth` below).
+const DEFAULT_PAGE_WIDTH = 560;
+const MIN_PAGE_WIDTH = 360;
+const MAX_PAGE_WIDTH = 1100;
 
 type Mode = 'inline' | 'text' | 'draw';
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
 
 export function EditPdf() {
   const { status } = useBackend();
@@ -50,9 +58,40 @@ export function EditPdf() {
   // Actual on-screen page size, reported by PageCanvas once it renders — the
   // overlay must match this exactly, since pages aren't all the same aspect
   // ratio as a guessed portrait default.
-  const [pageSize, setPageSize] = useState({ width: PAGE_WIDTH, height: PAGE_WIDTH * 1.3 });
+  const [pageSize, setPageSize] = useState({
+    width: DEFAULT_PAGE_WIDTH,
+    height: DEFAULT_PAGE_WIDTH * 1.3,
+  });
   const handleRendered = useCallback((size: { width: number; height: number }) => {
     setPageSize(size);
+  }, []);
+
+  // Requested render width for PageCanvas — as much of the stage as is
+  // actually available, so the page fills the screen instead of being
+  // capped at an arbitrary fixed size regardless of viewport.
+  const [stageWidth, setStageWidth] = useState(DEFAULT_PAGE_WIDTH);
+  const stageObserver = useRef<ResizeObserver | null>(null);
+  // Callback ref, not useRef: `.editor__stage` only mounts once a file is
+  // loaded, so a mount-only effect watching a plain ref would attach before
+  // the element exists and never observe it. This fires exactly when the
+  // node itself appears/disappears.
+  const stageRef = useCallback((el: HTMLDivElement | null) => {
+    stageObserver.current?.disconnect();
+    if (!el) return;
+    // Measure synchronously right away — some environments don't reliably
+    // fire ResizeObserver's initial callback, and we need the real width
+    // before the first PDF render, not just on the next size change.
+    const measure = (width: number) => {
+      if (width > 0) {
+        setStageWidth(Math.round(clamp(width, MIN_PAGE_WIDTH, MAX_PAGE_WIDTH)));
+      }
+    };
+    measure(el.getBoundingClientRect().width);
+    const observer = new ResizeObserver((entries) => {
+      measure(entries[0]?.contentRect.width ?? 0);
+    });
+    observer.observe(el);
+    stageObserver.current = observer;
   }, []);
 
   // In-progress freehand stroke (normalized points).
@@ -65,8 +104,8 @@ export function EditPdf() {
   // Each page can have a different aspect ratio — don't let a stale size
   // from the previous page apply while the new one is still rendering.
   useEffect(() => {
-    setPageSize({ width: PAGE_WIDTH, height: PAGE_WIDTH * 1.3 });
-  }, [doc, pageIndex]);
+    setPageSize({ width: stageWidth, height: stageWidth * 1.3 });
+  }, [doc, pageIndex, stageWidth]);
 
   // Extract editable text runs for the current page when in inline mode.
   useEffect(() => {
@@ -365,7 +404,7 @@ export function EditPdf() {
             )}
           </div>
 
-          <div className="editor__stage">
+          <div className="editor__stage" ref={stageRef}>
             {doc && (
               <div className="page-nav">
                 <button
@@ -406,7 +445,7 @@ export function EditPdf() {
                   key={pageIndex}
                   doc={doc}
                   pageNumber={pageIndex + 1}
-                  width={PAGE_WIDTH}
+                  width={stageWidth}
                   onRendered={handleRendered}
                 />
 
