@@ -1,9 +1,14 @@
 """Inline text editing: replace existing text in a PDF, preserving layout.
 
-Strategy (chosen for robustness over cleverness): **whiteout + redraw**.
-For each edit we cover the original run's bounding box with an opaque white
-rectangle, then draw the replacement text at the same baseline. This is the
-same proven primitive used by the watermark-redaction tool.
+Strategy: **remove + whiteout + redraw**. For each edit we first try to
+drop the original run's text-show operators from the content stream
+(`hide_original_glyphs`, geometric match by bbox) so the old text is gone,
+not just covered — it was previously still selectable/extractable under a
+whiteout despite being invisible. We then cover the run's bounding box with
+an opaque white rectangle regardless (cheap insurance, and the fallback for
+the rare case the geometric match misses), and draw the replacement text at
+the same baseline. The whiteout is the same proven primitive used by the
+watermark-redaction tool.
 
 Font fidelity is tiered and reported honestly back to the client:
   - Tier 1 (high): the original font is fully embedded and NOT subset → reuse
@@ -26,6 +31,7 @@ import pikepdf
 from fastapi import APIRouter, Form, HTTPException, UploadFile
 
 from ..deps import pdf_response, read_upload
+from ..hide_text import hide_original_glyphs
 from ..pdf_util import (
     base_ctm_inverse,
     cm_str,
@@ -111,23 +117,28 @@ async def edit_text(file: UploadFile, edits: str = Form(...)):
 
 
 def _apply_text_edit(pdf: pikepdf.Pdf, page, spec: dict) -> bool:
-    """Whiteout the original run and draw `newText`. Returns True if a fallback
-    font was used."""
+    """Hide the original run's glyphs, whiteout the box as a safety net, and
+    draw `newText`. Returns True if a fallback font was used."""
     bbox = spec["bbox"]
     font_info = spec.get("fontInfo", {})
     new_text = str(spec["newText"])
+    norm_box = {"x": bbox["x"], "y": bbox["y"], "w": bbox["width"], "h": bbox["height"]}
 
-    # 1. Cover the original text. paint_white_box expects keys x,y,w,h.
-    paint_white_box(
-        pdf,
-        page,
-        {"x": bbox["x"], "y": bbox["y"], "w": bbox["width"], "h": bbox["height"]},
-    )
+    # 1. Try to actually remove the old text — drop the specific text-show
+    #    operators that drew it from the content stream, rather than just
+    #    covering them. Must run first: it replaces page.Contents wholesale,
+    #    so anything appended afterward (the whiteout, the new text) is safe.
+    hide_original_glyphs(pdf, page, norm_box)
 
-    # 2. Decide the font to draw with.
+    # 2. Cover the original text's box regardless — a safety net for the
+    #    (expected to be rare) case where geometric matching above missed the
+    #    run, and cheap insurance even when it didn't.
+    paint_white_box(pdf, page, norm_box)
+
+    # 3. Decide the font to draw with.
     res_name, used_fallback = _ensure_font(pdf, page, font_info)
 
-    # 3. Baseline position in PDF points. The bbox top is at bbox.y; the text
+    # 4. Baseline position in PDF points. The bbox top is at bbox.y; the text
     #    baseline sits ~descent above the box bottom. We approximate the
     #    baseline at the box bottom + 18% of size (typical descent fraction).
     size = float(font_info.get("size", 12))
@@ -136,7 +147,7 @@ def _apply_text_edit(pdf: pikepdf.Pdf, page, spec: dict) -> bool:
     )
     baseline_y = py_bottom + size * 0.18
 
-    # 4. Append the text-drawing stream so it lands on top of the whiteout.
+    # 5. Append the text-drawing stream so it lands on top of the whiteout.
     #    Undo any leaked base CTM first — see base_ctm_inverse's docstring —
     #    so our "absolute" position and font size aren't silently
     #    rescaled/shifted by whatever transform the original content left
