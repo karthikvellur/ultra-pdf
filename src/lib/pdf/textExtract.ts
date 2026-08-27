@@ -15,7 +15,7 @@ import type {
   TextStyle,
 } from 'pdfjs-dist/types/src/display/api';
 import type { RenderableDoc, PageTextGeometry } from './render';
-import type { BBox, FontInfo, TextRun } from './inlineEdit';
+import { defaultFormatting, type BBox, type FontInfo, type TextRun } from './inlineEdit';
 
 const BASELINE_TOLERANCE = 2; // PDF points
 
@@ -169,6 +169,7 @@ function lineToRun(
     edited: original,
     bbox,
     font,
+    formatting: defaultFormatting(font),
     editable,
   };
 }

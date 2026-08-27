@@ -31,6 +31,7 @@ import pikepdf
 from fastapi import APIRouter, Form, HTTPException, UploadFile
 
 from ..deps import pdf_response, read_upload
+from ..embed_font import BUNDLED_FONT_FAMILIES, embed_bundled_font
 from ..hide_text import hide_original_glyphs
 from ..pdf_util import (
     base_ctm_inverse,
@@ -118,9 +119,11 @@ async def edit_text(file: UploadFile, edits: str = Form(...)):
 
 def _apply_text_edit(pdf: pikepdf.Pdf, page, spec: dict) -> bool:
     """Hide the original run's glyphs, whiteout the box as a safety net, and
-    draw `newText`. Returns True if a fallback font was used."""
+    draw `newText` with any requested formatting. Returns True if a fallback
+    (non-original) font was used."""
     bbox = spec["bbox"]
     font_info = spec.get("fontInfo", {})
+    formatting = spec.get("formatting") or {}
     new_text = str(spec["newText"])
     norm_box = {"x": bbox["x"], "y": bbox["y"], "w": bbox["width"], "h": bbox["height"]}
 
@@ -135,50 +138,114 @@ def _apply_text_edit(pdf: pikepdf.Pdf, page, spec: dict) -> bool:
     #    run, and cheap insurance even when it didn't.
     paint_white_box(pdf, page, norm_box)
 
-    # 3. Decide the font to draw with.
-    res_name, used_fallback = _ensure_font(pdf, page, font_info)
+    # 3. Resolve effective style: the user's formatting choices override the
+    #    detected original where set; a family other than "original" (or any
+    #    of the toggles) forces a fresh font, since the original embedded
+    #    font can't be reused for a different family/weight/style.
+    family = formatting.get("family", "original")
+    effective_bold = bool(formatting.get("bold", font_info.get("bold", False)))
+    effective_italic = bool(formatting.get("italic", font_info.get("italic", False)))
+    size = float(formatting.get("size") or font_info.get("size", 12))
+    color = formatting.get("color") or {"r": 0, "g": 0, "b": 0}
 
-    # 4. Baseline position in PDF points. The bbox top is at bbox.y; the text
+    # 4. Decide the font + how to encode `new_text` for it.
+    if family in BUNDLED_FONT_FAMILIES:
+        res_name, cid_bytes = embed_bundled_font(
+            pdf, page, family, effective_bold, effective_italic, new_text
+        )
+        text_operand = f"<{cid_bytes.hex().upper()}>"
+        used_fallback = True
+    else:
+        res_name, used_fallback = _ensure_font(
+            pdf, page, font_info, family, effective_bold, effective_italic
+        )
+        text_operand = _pdf_escape(new_text)
+
+    # 5. Baseline position in PDF points. The bbox top is at bbox.y; the text
     #    baseline sits ~descent above the box bottom. We approximate the
     #    baseline at the box bottom + 18% of size (typical descent fraction).
-    size = float(font_info.get("size", 12))
     px, py_bottom, _w, _h = norm_rect_to_points(
         page, bbox["x"], bbox["y"], bbox["width"], bbox["height"]
     )
     baseline_y = py_bottom + size * 0.18
 
-    # 5. Append the text-drawing stream so it lands on top of the whiteout.
+    # 6. Append the text-drawing stream so it lands on top of the whiteout.
     #    Undo any leaked base CTM first — see base_ctm_inverse's docstring —
     #    so our "absolute" position and font size aren't silently
     #    rescaled/shifted by whatever transform the original content left
     #    active outside a balanced q/Q pair.
     inv = cm_str(base_ctm_inverse(page))
-    esc = _pdf_escape(new_text)
+    r, g, b = color.get("r", 0), color.get("g", 0), color.get("b", 0)
     overlay = (
-        f"q {inv} cm BT /{res_name} {size:.2f} Tf 0 0 0 rg "
-        f"1 0 0 1 {px:.2f} {baseline_y:.2f} Tm {esc} Tj ET Q\n"
-    ).encode("latin-1")
-    page.contents_add(pikepdf.Stream(pdf, overlay), prepend=False)
+        f"q {inv} cm BT /{res_name} {size:.2f} Tf {r:.4f} {g:.4f} {b:.4f} rg "
+        f"1 0 0 1 {px:.2f} {baseline_y:.2f} Tm {text_operand} Tj ET\n"
+    )
+
+    # 7. Underline / strikethrough — drawn as plain filled rectangles, since
+    #    the PDF text-rendering model has no built-in decoration lines.
+    text_width = _estimate_text_width(new_text, size, effective_bold)
+    if formatting.get("underline"):
+        underline_y = baseline_y - size * 0.08
+        thickness = max(0.75, size * 0.05)
+        overlay += (
+            f"{px:.2f} {underline_y:.2f} {text_width:.2f} {thickness:.2f} re f\n"
+        )
+    if formatting.get("strikethrough"):
+        strike_y = baseline_y + size * 0.3
+        thickness = max(0.75, size * 0.05)
+        overlay += f"{px:.2f} {strike_y:.2f} {text_width:.2f} {thickness:.2f} re f\n"
+    overlay += "Q\n"
+
+    page.contents_add(pikepdf.Stream(pdf, overlay.encode("latin-1")), prepend=False)
     return used_fallback
 
 
-def _ensure_font(pdf: pikepdf.Pdf, page, font_info: dict) -> tuple[str, bool]:
+def _estimate_text_width(text: str, size: float, bold: bool) -> float:
+    """Rough advance-width estimate for underline/strikethrough line length —
+    doesn't need to be exact, just close enough that the line looks right
+    under the text. Average glyph width as a fraction of size, bumped
+    slightly for bold."""
+    avg_char_width = 0.56 if bold else 0.5
+    return len(text) * size * avg_char_width
+
+
+def _ensure_font(
+    pdf: pikepdf.Pdf,
+    page,
+    font_info: dict,
+    family: str,
+    effective_bold: bool,
+    effective_italic: bool,
+) -> tuple[str, bool]:
     """Return (resource_name, used_fallback).
 
-    Tier 1: reuse the page's existing font if it's fully embedded & not subset.
+    Tier 1: reuse the page's existing font if it's fully embedded, not
+    subset, AND the user didn't request a style the original can't provide
+    (a different family, or a bold/italic the source font doesn't have).
     Tier 2: register a Base-14 font matched to the requested style.
     """
+    no_override = (
+        family == "original"
+        and effective_bold == bool(font_info.get("bold", False))
+        and effective_italic == bool(font_info.get("italic", False))
+    )
     resources = page.obj.get("/Resources")
     fonts = resources.get("/Font") if resources is not None else None
     requested = font_info.get("name")
 
-    if fonts is not None and requested:
+    if no_override and fonts is not None and requested:
         key = requested if requested.startswith("/") else f"/{requested}"
         src = fonts.get(key)
         if src is not None and _is_reusable(src):
             return key.lstrip("/"), False
 
-    return _embed_base14(pdf, page, font_info), True
+    style_info = {
+        "isSerif": family == "times" or (family == "original" and font_info.get("isSerif", False)),
+        "mono": family == "courier" or (family == "original" and font_info.get("mono", False)),
+        "bold": effective_bold,
+        "italic": effective_italic,
+    }
+    return _embed_base14(pdf, page, style_info), True
 
 
 def _is_reusable(font_dict) -> bool:

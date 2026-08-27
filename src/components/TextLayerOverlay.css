@@ -58,3 +58,118 @@
   outline: none;
   box-shadow: 0 0 0 2px var(--color-primary-soft);
 }
+
+/* Wraps the active run's input plus its floating formatting toolbar, so the
+   toolbar can be positioned relative to the run without disturbing the
+   run's own absolute box (set by the parent .text-layer). */
+.text-line-active-wrap {
+  position: absolute;
+  pointer-events: auto;
+}
+
+.text-line-active-wrap .text-line--active {
+  position: absolute;
+  inset: 0;
+}
+
+.format-toolbar {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  white-space: nowrap;
+  z-index: 10;
+  font-size: 13px;
+}
+
+.format-toolbar__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.format-toolbar__btn:hover {
+  background: var(--color-surface-2);
+}
+
+.format-toolbar__btn--active {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary-border);
+  color: var(--color-primary);
+}
+
+.format-toolbar__divider {
+  width: 1px;
+  height: 20px;
+  background: var(--color-border);
+  margin: 0 2px;
+  flex-shrink: 0;
+}
+
+.format-toolbar__select {
+  height: 26px;
+  padding: 0 4px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 12px;
+  max-width: 120px;
+}
+
+.format-toolbar__size {
+  width: 44px;
+  height: 26px;
+  padding: 0 4px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 12px;
+}
+
+.format-toolbar__colors {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.format-toolbar__swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  padding: 0;
+}
+
+.format-toolbar__swatch--active {
+  box-shadow: 0 0 0 2px var(--color-primary);
+}
+
+.format-toolbar__color-input {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  background: none;
+}

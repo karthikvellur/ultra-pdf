@@ -1,0 +1,74 @@
+{
+  "Roboto": {
+    "category": "sans-serif",
+    "files": {
+      "Regular": "Roboto-Regular.ttf",
+      "Bold": "Roboto-Bold.ttf",
+      "Italic": "Roboto-Italic.ttf",
+      "BoldItalic": "Roboto-BoldItalic.ttf"
+    }
+  },
+  "OpenSans": {
+    "category": "sans-serif",
+    "files": {
+      "Regular": "OpenSans-Regular.ttf",
+      "Bold": "OpenSans-Bold.ttf",
+      "Italic": "OpenSans-Italic.ttf",
+      "BoldItalic": "OpenSans-BoldItalic.ttf"
+    }
+  },
+  "Lato": {
+    "category": "sans-serif",
+    "files": {
+      "Regular": "Lato-Regular.ttf",
+      "Bold": "Lato-Bold.ttf",
+      "Italic": "Lato-Italic.ttf",
+      "BoldItalic": "Lato-BoldItalic.ttf"
+    }
+  },
+  "SourceSerif4": {
+    "category": "serif",
+    "files": {
+      "Regular": "SourceSerif4-Regular.ttf",
+      "Bold": "SourceSerif4-Bold.ttf",
+      "Italic": "SourceSerif4-Italic.ttf",
+      "BoldItalic": "SourceSerif4-BoldItalic.ttf"
+    }
+  },
+  "Merriweather": {
+    "category": "serif",
+    "files": {
+      "Regular": "Merriweather-Regular.ttf",
+      "Bold": "Merriweather-Bold.ttf",
+      "Italic": "Merriweather-Italic.ttf",
+      "BoldItalic": "Merriweather-BoldItalic.ttf"
+    }
+  },
+  "PTSerif": {
+    "category": "serif",
+    "files": {
+      "Regular": "PTSerif-Regular.ttf",
+      "Bold": "PTSerif-Bold.ttf",
+      "Italic": "PTSerif-Italic.ttf",
+      "BoldItalic": "PTSerif-BoldItalic.ttf"
+    }
+  },
+  "JetBrainsMono": {
+    "category": "monospace",
+    "files": {
+      "Regular": "JetBrainsMono-Regular.ttf",
+      "Bold": "JetBrainsMono-Bold.ttf",
+      "Italic": "JetBrainsMono-Italic.ttf",
+      "BoldItalic": "JetBrainsMono-BoldItalic.ttf"
+    }
+  },
+  "IBMPlexMono": {
+    "category": "monospace",
+    "files": {
+      "Regular": "IBMPlexMono-Regular.ttf",
+      "Bold": "IBMPlexMono-Bold.ttf",
+      "Italic": "IBMPlexMono-Italic.ttf",
+      "BoldItalic": "IBMPlexMono-BoldItalic.ttf"
+    }
+  }
+}

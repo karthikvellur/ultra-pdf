@@ -10,6 +10,8 @@ import { applyAnnotations, hexToRgb, type Annotation } from '@/lib/pdf/edit';
 import {
   getEditOps,
   applyInlineTextEdits,
+  opHasFormattingOverride,
+  type FormattingOverrides,
   type TextRun,
 } from '@/lib/pdf/inlineEdit';
 import { extractTextRuns } from '@/lib/pdf/textExtract';
@@ -150,6 +152,15 @@ export function EditPdf() {
     }));
   }
 
+  function updateFormatting(id: string, changes: Partial<FormattingOverrides>) {
+    setRunsByPage((prev) => ({
+      ...prev,
+      [pageIndex]: (prev[pageIndex] ?? []).map((r) =>
+        r.id === id ? { ...r, formatting: { ...r.formatting, ...changes } } : r,
+      ),
+    }));
+  }
+
   const allRuns = Object.values(runsByPage).flat();
   const pendingEdits = getEditOps(allRuns);
 
@@ -221,6 +232,13 @@ export function EditPdf() {
 
       // 1. Apply inline text edits (server preferred, client fallback).
       if (pendingEdits.length > 0) {
+        // A fallback font is only a fidelity *compromise* when the user
+        // didn't ask for a specific font — if they picked Bold/Italic/a
+        // bundled family themselves, using a fresh font for that run is
+        // simply correct, not a limitation worth surfacing.
+        const anyUnrequestedFallback = pendingEdits.some(
+          (op) => !opHasFormattingOverride(op),
+        );
         if (serverUp) {
           const res = await serverEditText(
             working,
@@ -228,14 +246,16 @@ export function EditPdf() {
             pendingEdits,
           );
           working = res.bytes;
-          if (res.fontFallback) {
+          if (res.fontFallback && anyUnrequestedFallback) {
             caveat =
               'Some original fonts couldn’t be reused (subset/embedded), so a close-matching standard font was used for the edited text.';
           }
         } else {
           working = await applyInlineTextEdits(working, pendingEdits);
-          caveat =
-            'Server offline — edited text was redrawn with a standard font (lower fidelity). Start the backend for embedded-font matching.';
+          if (anyUnrequestedFallback) {
+            caveat =
+              'Server offline — unformatted edits were redrawn with a standard font (lower fidelity). Start the backend for embedded-font matching.';
+          }
         }
       }
 
@@ -457,6 +477,7 @@ export function EditPdf() {
                     activeRunId={activeRunId}
                     onActivate={setActiveRunId}
                     onEdit={editRun}
+                    onFormat={updateFormatting}
                     onCommit={() => setActiveRunId(null)}
                     onCancel={() => setActiveRunId(null)}
                   />

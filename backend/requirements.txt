@@ -9,3 +9,4 @@ pdf2image==1.17.0       # PDF -> PIL images (needs poppler)
 Pillow==11.0.0          # image handling for images->PDF, rasterize
 ocrmypdf==16.5.0        # OCR text layer (needs tesseract + ghostscript)
 pypdf==5.1.0            # lightweight reads/metadata + simple text extraction
+fontTools==4.63.0       # subset + embed bundled webfonts for inline text edits
